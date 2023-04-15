@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>发表文章</title>
+</head>
+<body>
+<center>
+    <h1>发表文章</h1>
+    <form action="/writeArticle" method="get">
+        <table border="1" cellspacing="0" style="text-align: center">
+            <tr>
+                <td>标题</td>
+                <td colspan="3" style="padding: 0;">
+                    <input name="title" style="width: 98%" type="text">
+                </td>
+            </tr>
+            <tr>
+                <td>发表者</td>
+                <td colspan="3" style="padding: 0;">
+                    <input name="publisher" style="width: 98%" type="text">
+                </td>
+            </tr>
+            <tr>
+                <td>内容</td>
+                <td colspan="3">
+                    <textarea name="content" id="" style="border-radius: 10px; border: #3b6d3b 3px solid" cols="60"
+                              rows="20"></textarea>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <input type="submit" value="发表">
+                </td>
+            </tr>
+        </table>
+    </form>
+</center>
+</body>
+</html>

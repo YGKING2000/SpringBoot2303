@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.util.ArrayList;
 
 /**
  * @Description User实体类
@@ -17,7 +18,7 @@ import java.io.*;
  */
 @Controller
 public class UserController {
-    private static File userDir;
+    private static final File userDir;
 
     static {
         userDir = new File("./userDir");
@@ -58,7 +59,7 @@ public class UserController {
         }
         try (
                 FileInputStream fis = new FileInputStream(file);
-                ObjectInputStream ois = new ObjectInputStream(fis);
+                ObjectInputStream ois = new ObjectInputStream(fis)
         ) {
             User user = (User) ois.readObject();
             assert password != null;
@@ -116,10 +117,75 @@ public class UserController {
                 ObjectOutputStream oos = new ObjectOutputStream(fos)
         ) {
             oos.writeObject(user);
-            userDir = new File("./userDir");
             response.sendRedirect("/reg_success.html");
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    @RequestMapping("/userList")
+    public void userList(HttpServletRequest request, HttpServletResponse response) {
+        ArrayList<User> userList = new ArrayList<>();
+        File dir = new File("./userDir");
+        if (dir.exists() && dir.isDirectory()) {
+            File[] files = dir.listFiles(file -> file.getName().endsWith(".obj"));
+            assert files != null;
+            for (File item : files) {
+                try (
+                        FileInputStream fis = new FileInputStream(item);
+                        ObjectInputStream ois = new ObjectInputStream(fis)
+                ) {
+                    User user = (User) ois.readObject();
+                    userList.add(user);
+                    userList.sort((o1, o2) -> o2.getAge() - o1.getAge());
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+            response.setContentType("text/html;charset=utf-8");
+            try {
+                PrintWriter pw = response.getWriter();
+                pw.println("<!DOCTYPE html>");
+                pw.println("<html lang=\"en\">");
+                pw.println("<head>");
+                pw.println("<meta charset=\"UTF-8\">");
+                pw.println("<title>用户列表</title>");
+                pw.println("</head>");
+                pw.println("<body>");
+                pw.println("<center>");
+                pw.println("<h1>用户列表</h1>");
+                pw.println("<table border=\"1\">");
+                pw.println("<tr>");
+                pw.println("<td>用户名</td>");
+                pw.println("<td>密码</td>");
+                pw.println("<td>昵称</td>");
+                pw.println("<td>年龄</td>");
+                pw.println("</tr>");
+
+                for (User user : userList) {
+                    pw.println("<tr>");
+                    pw.println("<td>" + user.getUsername() + "</td>");
+                    pw.println("<td>" + user.getPassword() + "</td>");
+                    pw.println("<td>" + user.getNickname() + "</td>");
+                    pw.println("<td>" + user.getAge() + "</td>");
+                    pw.println("</tr>");
+                }
+                /*userList.forEach(user -> {
+                    pw.println("<tr>");
+                    pw.println("<td>" + user.getUsername() + "</td>");
+                    pw.println("<td>" + user.getPassword() + "</td>");
+                    pw.println("<td>" + user.getNickname() + "</td>");
+                    pw.println("<td>" + user.getAge() + "</td>");
+                    pw.println("</tr>");
+                });*/
+
+                pw.println("</table>");
+                pw.println("</center>");
+                pw.println("</body>");
+                pw.println("</html>");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
