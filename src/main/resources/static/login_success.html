@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>登录成功</title>
+</head>
+<body>
+<center>
+  <h1 style="color: #4bd44b">登陆成功!</h1>
+  <h1 id="message" style="color: #4bd44b">3秒后自动跳转首页！</h1>
+</center>
+</body>
+<script>
+  let message = document.querySelector("#message");
+  let time = 2;
+  const interval = setInterval(() => {
+    if (time > 0) {
+      message.innerHTML = time + "秒后自动跳转首页！";
+    } else {
+      message.innerHTML = "即将跳转到首页！";
+      clearInterval(interval);
+      setInterval(() => {}, 10);
+      location.href = "index.html";
+    }
+    time--;
+  }, 1000);
+</script>
+</html>
