@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>发表成功</title>
+    <title>删除失败</title>
 </head>
 <body>
 <center>
-    <h1>发表成功</h1>
-    <h1 id="message" style="color: #4bd44b">3秒后自动跳转文章发表页！</h1>
+    <h1 style="color: #c24a4a">删除失败</h1>
+    <h1 id="message" style="color: #c24a4a">3秒后自动跳转主页！</h1>
 </center>
 </body>
 <script>
@@ -15,12 +15,12 @@
     let time = 2;
     const interval = setInterval(() => {
         if (time > 0) {
-            message.innerHTML = time + "秒后自动跳转文章发表页！";
+            message.innerHTML = time + "秒后自动跳转主页！";
         } else {
-            message.innerHTML = "即将跳转到文章发表页！";
+            message.innerHTML = "即将跳转到主页！";
             clearInterval(interval);
             setInterval(() => {}, 10);
-            location.href = "writeArticle.html";
+            location.href = "/userList";
         }
         time--;
     }, 1000);

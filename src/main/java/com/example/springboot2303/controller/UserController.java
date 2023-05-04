@@ -1,13 +1,13 @@
 package com.example.springboot2303.controller;
 
-import com.example.springboot2303.entity.User;
+import com.example.springboot2303.util.DBUtil;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.util.ArrayList;
+import java.sql.*;
 
 /**
  * @Description User实体类
@@ -48,28 +48,25 @@ public class UserController {
                 e.printStackTrace();
             }
         }
-        File file = new File(userDir, username + ".obj");
-        if (!file.exists()) {
-            try {
-                response.sendRedirect("/user_not_exist.html");
-                return;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
         try (
-                FileInputStream fis = new FileInputStream(file);
-                ObjectInputStream ois = new ObjectInputStream(fis)
+                Connection connection = DBUtil.getConnection()
         ) {
-            User user = (User) ois.readObject();
-            assert password != null;
-            if (!password.equals(user.getPassword())) {
-                response.sendRedirect("/pwd_err.html");
+            String queryString = "SELECT username, password FROM userinfo WHERE username = ?";
+            PreparedStatement ps = connection.prepareStatement(queryString);
+            ps.setString(1, username);
+            ResultSet resultSet = ps.executeQuery();
+            if (resultSet.next()) {
+                String originPwd = resultSet.getString("password");
+                if (originPwd.equals(password)) {
+                    response.sendRedirect("/login_success.html");
+                } else {
+                    response.sendRedirect("/pwd_err.html");
+                }
             } else {
-                response.sendRedirect("/login_success.html");
+                response.sendRedirect("/user_not_exist.html");
             }
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+        } catch (SQLException | IOException throwables) {
+            throwables.printStackTrace();
         }
     }
 
@@ -82,110 +79,120 @@ public class UserController {
      * @Date 2023/04/15 00:26:53
      */
     @RequestMapping("/regUser")
-    public void regUser(HttpServletRequest request, HttpServletResponse response) {
+    public void reg(HttpServletRequest request, HttpServletResponse response) {
         String username = request.getParameter("username");
         String password = request.getParameter("password");
         String nickname = request.getParameter("nickname");
         String ageStr = request.getParameter("age");
-        System.out.println(username + ", " + password + ", " + nickname + ", " + ageStr);
-        if (username == null || username.isEmpty() ||
-                password == null || password.isEmpty() ||
-                nickname == null || nickname.isEmpty() ||
-                ageStr == null || !ageStr.matches("[0-9]+")) {
+        if (username == null || username.isEmpty() || password == null || password.isEmpty() ||
+                nickname == null || nickname.isEmpty() || ageStr == null || !ageStr.matches("[\\d]+")) {
             try {
                 response.sendRedirect("/reg_illegal_input.html");
-                return;
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            return;
         }
-        assert ageStr != null;
         int age = Integer.parseInt(ageStr);
 
-        User user = new User(username, password, nickname, age);
-        File file = new File(userDir, username + ".obj");
-        if (file.exists()) {
-            try {
-                response.sendRedirect("/user_exist.html");
-                return;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
         try (
-                FileOutputStream fos = new FileOutputStream(file);
-                ObjectOutputStream oos = new ObjectOutputStream(fos)
+                Connection connection = DBUtil.getConnection()
         ) {
-            oos.writeObject(user);
-            response.sendRedirect("/reg_success.html");
-        } catch (IOException e) {
-            e.printStackTrace();
+            String querySql = "SELECT 1 FROM userinfo WHERE username = ?";
+            PreparedStatement ps = connection.prepareStatement(querySql);
+            ps.setString(1, username);
+            ResultSet resultSet = ps.executeQuery();
+            if (resultSet.next()) {
+                try {
+                    response.sendRedirect("/reg_user_exist.html");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                String insertSql = "INSERT INTO userinfo (username, password, nickname, age) VALUES (?, ?, ?, ?)";
+                ps = connection.prepareStatement(insertSql);
+                ps.setString(1, username);
+                ps.setString(2, password);
+                ps.setString(3, nickname);
+                ps.setInt(4, age);
+                int num = ps.executeUpdate();
+                if (num > 0) {
+                    response.sendRedirect("/reg_success.html");
+                } else {
+                    response.sendRedirect("/reg_illegal_input.html");
+                }
+            }
+        } catch (SQLException | IOException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    @RequestMapping("/deleteUser")
+    public void deleteUser(HttpServletRequest request, HttpServletResponse response) {
+        int id = Integer.parseInt(request.getParameter("id"));
+        try (
+                Connection connection = DBUtil.getConnection()
+        ) {
+            String sql = "DELETE FROM userinfo WHERE id = ?";
+            PreparedStatement ps = connection.prepareStatement(sql);
+            ps.setInt(1, id);
+            int num = ps.executeUpdate();
+            if (num > 0) {
+                response.sendRedirect("/userList");
+            } else {
+                response.sendRedirect("/delete_fail.html");
+            }
+        } catch (SQLException | IOException throwables) {
+            throwables.printStackTrace();
         }
     }
 
     @RequestMapping("/userList")
     public void userList(HttpServletRequest request, HttpServletResponse response) {
-        ArrayList<User> userList = new ArrayList<>();
-        File dir = new File("./userDir");
-        if (dir.exists() && dir.isDirectory()) {
-            File[] files = dir.listFiles(file -> file.getName().endsWith(".obj"));
-            assert files != null;
-            for (File item : files) {
-                try (
-                        FileInputStream fis = new FileInputStream(item);
-                        ObjectInputStream ois = new ObjectInputStream(fis)
-                ) {
-                    User user = (User) ois.readObject();
-                    userList.add(user);
-                    userList.sort((o1, o2) -> o2.getAge() - o1.getAge());
-                } catch (IOException | ClassNotFoundException e) {
-                    e.printStackTrace();
-                }
-            }
+        try (
+                Connection connection = DBUtil.getConnection()
+        ) {
             response.setContentType("text/html;charset=utf-8");
-            try {
-                PrintWriter pw = response.getWriter();
-                pw.println("<!DOCTYPE html>");
-                pw.println("<html lang=\"en\">");
-                pw.println("<head>");
-                pw.println("<meta charset=\"UTF-8\">");
-                pw.println("<title>用户列表</title>");
-                pw.println("</head>");
-                pw.println("<body>");
-                pw.println("<center>");
-                pw.println("<h1>用户列表</h1>");
-                pw.println("<table border=\"1\">");
+            PrintWriter pw = response.getWriter();
+            pw.println("<!DOCTYPE html>");
+            pw.println("<html lang=\"en\">");
+            pw.println("<head>");
+            pw.println("<meta charset=\"UTF-8\">");
+            pw.println("<title>用户列表</title>");
+            pw.println("</head>");
+            pw.println("<body>");
+            pw.println("<center>");
+            pw.println("<h1>用户列表</h1>");
+            pw.println("<table border=\"1\">");
+            pw.println("<tr>");
+            pw.println("<td>ID</td>");
+            pw.println("<td>用户名</td>");
+            pw.println("<td>密码</td>");
+            pw.println("<td>昵称</td>");
+            pw.println("<td>年龄</td>");
+            pw.println("<td>操作</td>");
+            pw.println("</tr>");
+
+            String sql = "SELECT id, username, password, nickname, age FROM userinfo";
+            final Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
                 pw.println("<tr>");
-                pw.println("<td>用户名</td>");
-                pw.println("<td>密码</td>");
-                pw.println("<td>昵称</td>");
-                pw.println("<td>年龄</td>");
+                pw.println("<td>" + id + "</td>");
+                pw.println("<td>" + resultSet.getString("username") + "</td>");
+                pw.println("<td>" + resultSet.getString("password") + "</td>");
+                pw.println("<td>" + resultSet.getString("nickname") + "</td>");
+                pw.println("<td>" + resultSet.getInt("age") + "</td>");
+                pw.println("<td><a href='/deleteUser?id=" + id +"'>删除</a></td>");
                 pw.println("</tr>");
-
-                for (User user : userList) {
-                    pw.println("<tr>");
-                    pw.println("<td>" + user.getUsername() + "</td>");
-                    pw.println("<td>" + user.getPassword() + "</td>");
-                    pw.println("<td>" + user.getNickname() + "</td>");
-                    pw.println("<td>" + user.getAge() + "</td>");
-                    pw.println("</tr>");
-                }
-                /*userList.forEach(user -> {
-                    pw.println("<tr>");
-                    pw.println("<td>" + user.getUsername() + "</td>");
-                    pw.println("<td>" + user.getPassword() + "</td>");
-                    pw.println("<td>" + user.getNickname() + "</td>");
-                    pw.println("<td>" + user.getAge() + "</td>");
-                    pw.println("</tr>");
-                });*/
-
-                pw.println("</table>");
-                pw.println("</center>");
-                pw.println("</body>");
-                pw.println("</html>");
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+            pw.println("</table>");
+            pw.println("</center>");
+            pw.println("</body>");
+            pw.println("</html>");
+        } catch (SQLException | IOException throwables) {
+            throwables.printStackTrace();
         }
     }
 }

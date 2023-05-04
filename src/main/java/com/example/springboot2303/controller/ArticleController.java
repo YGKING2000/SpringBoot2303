@@ -1,12 +1,14 @@
 package com.example.springboot2303.controller;
 
 import com.example.springboot2303.entity.Article;
+import com.example.springboot2303.util.DBUtil;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.sql.*;
 import java.util.ArrayList;
 
 /**
@@ -38,8 +40,8 @@ public class ArticleController {
     @RequestMapping("/writeArticle")
     public void writeArticle(HttpServletRequest request, HttpServletResponse response) {
         String title = request.getParameter("title");
-        String content = request.getParameter("content");
         String publisher = request.getParameter("publisher");
+        String content = request.getParameter("content");
         if (title == null || title.isEmpty()
                 || content == null || content.isEmpty()
                 || publisher == null || publisher.isEmpty()) {
@@ -50,43 +52,39 @@ public class ArticleController {
                 e.printStackTrace();
             }
         }
-        File file = new File(articles, title + ".obj");
-        if (file.exists()) {
-            try {
-                response.sendRedirect("/article_fail.html");
-                return;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        Article article = new Article(title, publisher, content);
         try (
-                FileOutputStream fos = new FileOutputStream(file);
-                ObjectOutputStream oos = new ObjectOutputStream(fos)
+                Connection connection = DBUtil.getConnection()
         ) {
-            oos.writeObject(article);
-            response.sendRedirect("/article_success.html");
-        } catch (IOException e) {
-            e.printStackTrace();
+            String querySql = "SELECT 1 FROM article WHERE title = ?";
+            PreparedStatement ps = connection.prepareStatement(querySql);
+            ps.setString(1, title);
+            ResultSet resultSet = ps.executeQuery();
+            if (resultSet.next()) {
+                try {
+                    response.sendRedirect("/article_exist.html");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                String insertSql = "INSERT INTO article (title, publisher, content) VALUES (?, ?, ?)";
+                ps = connection.prepareStatement(insertSql);
+                ps.setString(1, title);
+                ps.setString(2, publisher);
+                ps.setString(3, content);
+                int num = ps.executeUpdate();
+                if (num > 0) {
+                    response.sendRedirect("/article_success.html");
+                } else {
+                    response.sendRedirect("/article_fail.html");
+                }
+            }
+        } catch (SQLException | IOException throwables) {
+            throwables.printStackTrace();
         }
     }
 
     @RequestMapping("/articleList")
     public void articleList(HttpServletRequest request, HttpServletResponse response) {
-        ArrayList<Article> articleList = new ArrayList<>();
-        File[] files = articles.listFiles(file -> file.getName().endsWith(".obj"));
-        assert files != null;
-        for (File item : files) {
-            try (
-                    FileInputStream fis = new FileInputStream(item);
-                    ObjectInputStream ois = new ObjectInputStream(fis);
-            ) {
-                Article article = (Article) ois.readObject();
-                articleList.add(article);
-            } catch (IOException | ClassNotFoundException e) {
-                e.printStackTrace();
-            }
-        }
         try {
             response.setContentType("text/html;charset=utf-8");
             PrintWriter pw = response.getWriter();
@@ -105,18 +103,22 @@ public class ArticleController {
             pw.println("<th>发表者</th>");
             pw.println("<th>内容</th>");
             pw.println("</tr>");
-            articleList.forEach(article -> {
+            Connection connection = DBUtil.getConnection();
+            Statement statement = connection.createStatement();
+            String sql = "SELECT title, publisher, content FROM article";
+            ResultSet resultSet = statement.executeQuery(sql);
+            while (resultSet.next()) {
                 pw.println("<tr>");
-                pw.println("<td>" + article.getTitle() + "</td>");
-                pw.println("<td>" + article.getPublisher() + "</td>");
-                pw.println("<td>" + article.getContent() + "</td>");
+                pw.println("<td>" + resultSet.getString("title") + "</td>");
+                pw.println("<td>" + resultSet.getString("publisher") + "</td>");
+                pw.println("<td>" + resultSet.getString("content") + "</td>");
                 pw.println("</tr>");
-            });
+            }
             pw.println("</table>");
             pw.println("</center>");
             pw.println("</body>");
             pw.println("</html>");
-        } catch (IOException e) {
+        } catch (IOException | SQLException e) {
             e.printStackTrace();
         }
 
